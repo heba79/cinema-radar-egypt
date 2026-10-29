@@ -1,0 +1,31 @@
+# Fly.io config for the always-on monitoring worker.
+#   fly launch --no-deploy --copy-config --name cinema-radar-worker
+#   fly secrets set DATABASE_URL=... TMDB_READ_TOKEN=... RESEND_API_KEY=... (see .env.example)
+#   fly deploy
+app = "cinema-radar-worker"
+primary_region = "fra" # closest Fly region with low latency to Cairo and to Supabase eu-central-1
+
+[build]
+  dockerfile = "Dockerfile.worker"
+
+[env]
+  MONITOR_INTERVAL_SECONDS = "300"
+  PG_POOL_MAX = "3"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# No public HTTP service: the worker only needs outbound access.
+# Health is checked internally on :8080 and restarts are automatic.
+[[restart]]
+  policy = "always"
+
+[checks]
+  [checks.alive]
+    type = "http"
+    port = 8080
+    path = "/"
+    interval = "60s"
+    timeout = "5s"
+    grace_period = "60s"

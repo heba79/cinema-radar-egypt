@@ -1,0 +1,18 @@
+# Cinema Radar Egypt — monitoring worker image (runs 24/7, independent of the website)
+FROM node:22-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm install --no-save tsx@4
+
+FROM node:22-slim
+ENV NODE_ENV=production PORT=8080
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json tsconfig.json ./
+COPY src/lib ./src/lib
+COPY worker ./worker
+RUN useradd -m radar && chown -R radar /app
+USER radar
+EXPOSE 8080
+HEALTHCHECK --interval=60s --timeout=5s --start-period=60s CMD node -e "fetch('http://127.0.0.1:8080').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node_modules/.bin/tsx", "worker/index.ts"]

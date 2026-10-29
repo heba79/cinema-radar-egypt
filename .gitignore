@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local
+.env
+.env.local
+/test-results
+/playwright-report
+!.env.example
+
+.vercel
+.env*
+
+# local tooling / research
+/.claude/
+
+# keep the env TEMPLATE (no real values); must stay last so nothing re-ignores it
+!.env.example
