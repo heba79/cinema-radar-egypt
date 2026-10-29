@@ -11,7 +11,7 @@ laptop, that site is paused for 6 hours — nothing ever tries to get around a b
 | Site | Allowed by robots.txt | What we read |
 |---|---|---|
 | Scene | everything (`Allow: /`) | movie pages, every listed day's sessions, one "Buy Tickets" page per branch (read-only) |
-| VOX | `/movies/*` only — **not** booking pages or URLs with `?` | each movie's default page (its first day with sessions) |
+| VOX | `/movies/*` only — **not** booking pages or URLs with `?` | **disabled**: VOX's Akamai front end stalls every request that identifies itself as a monitor (even robots.txt). We don't disguise the monitor, so VOX stays off unless VOX allows it. |
 
 It costs $0, holds **no database keys** (only a revocable worker token), and only runs
 while you're signed in and the laptop is awake.
@@ -36,8 +36,8 @@ if missing: git-scm.com).
    ```powershell
    npx tsx local-worker/run.ts --check
    ```
-   Expect `scene: access ok`. VOX often shows `error … timeout` (their site is
-   unreliable) — that's fine; it will retry later.
+   Expect `scene: access ok`. VOX is switched off (`PROVIDERS=scene`); if you
+   enable it, expect `vox-egypt: access error … timeout` — see the table above.
 4. **Manual test run:**
    ```powershell
    npx tsx local-worker/run.ts --once
