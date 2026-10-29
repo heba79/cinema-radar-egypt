@@ -53,7 +53,7 @@ if missing: git-scm.com).
 
 ## Everyday use
 - **Logs:** `C:\CinemaRadar\local-worker\logs\worker-YYYY-MM-DD.log` (kept 14 days).
-- **Pause for a site:** remove it from `PROVIDERS=` in `local-worker\.env`.
+- **Pause for a site:** remove it from `PROVIDERS=` in `local-worker\.env` (default: `PROVIDERS=scene`).
 - **Stop completely:** `powershell -ExecutionPolicy Bypass -File local-worker\uninstall-task.ps1`
 - **Update after code changes:** `cd C:\CinemaRadar; git pull; npm ci`
 - **Laptop asleep/off:** no Scene/VOX checks; after 15 minutes the website falls back
