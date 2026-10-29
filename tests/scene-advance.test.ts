@@ -6,6 +6,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readBranchDays } from "@/lib/providers/scene/adapter";
 import { parseMoviePage, parseShowtimes } from "@/lib/providers/scene/parse";
+import { isChallengePage } from "@/lib/http";
+
+describe("anti-bot pages are treated as blocks", () => {
+  it("recognises Cloudflare block/challenge pages but not normal pages", () => {
+    expect(isChallengePage("<html><head><title>Attention Required! | Cloudflare</title>")).toBe(true);
+    expect(isChallengePage('<title>Just a moment...</title><script src="/cdn-cgi/challenge-platform/x"></script>')).toBe(true);
+    expect(isChallengePage(readFileSync(join(__dirname, "fixtures", "scene-movie-avengers-advance.html"), "utf8"))).toBe(false);
+  });
+});
 
 const fx = (name: string) => readFileSync(join(__dirname, "fixtures", name), "utf8");
 const page = fx("scene-movie-avengers-advance.html");

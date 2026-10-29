@@ -18,6 +18,7 @@ const schema = z.object({
   APP_URL: z.string().url().default("http://localhost:3000"),
   ADMIN_EMAILS: z.string().default(""),
   CRON_SECRET: z.string().optional(),
+  LOCAL_WORKER_TOKEN: z.string().optional(),
   SCRAPER_CONTACT: z.string().default("https://github.com/"),
   MONITOR_INTERVAL_SECONDS: z.coerce.number().int().min(60).default(300),
 });

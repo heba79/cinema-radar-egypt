@@ -47,6 +47,9 @@ export default async function AdminPage() {
     ),
   ]);
   const usage = await freeTierUsage().catch(() => null);
+  const laptops = await q<{ worker_id: string; version: string; last_seen_at: string; details: { detail?: Record<string, { state: string; detail?: string }>; lastRun?: Record<string, unknown> } | null }>(
+    "select worker_id, version, last_seen_at, details from worker_heartbeats where worker_id like 'laptop-%' order by last_seen_at desc",
+  );
   const workerAlive = workers.some((w) => Date.now() - new Date(w.last_seen_at).getTime() < 90_000);
 
   return (
@@ -110,6 +113,38 @@ export default async function AdminPage() {
           </div>
         </section>
       )}
+
+      <section>
+        <h3 className="mb-1 font-semibold">Laptop worker (Scene &amp; VOX)</h3>
+        <p className="mb-3 text-xs text-muted">Reads Scene/VOX from your home connection (they refuse cloud servers). Offline when the laptop is off or asleep — the cloud then covers what it can.</p>
+        {laptops.length === 0 ? (
+          <Card className="p-4 text-sm text-muted">No laptop worker has reported yet.</Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {laptops.map((l) => {
+              const ageMin = Math.round((Date.now() - new Date(l.last_seen_at).getTime()) / 60000);
+              const online = ageMin <= 15;
+              return (
+                <Card key={l.worker_id} className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{l.worker_id}</p>
+                    <Badge tone={online ? "green" : "zinc"}>{online ? "● Online" : "○ Offline"}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">Last report {formatCairo(l.last_seen_at)} ({ageMin} min ago) · {l.version}</p>
+                  <div className="mt-2 space-y-1">
+                    {Object.entries(l.details?.detail ?? {}).map(([p, s]) => (
+                      <p key={p} className="text-xs">
+                        <Badge tone={s.state === "ok" ? "green" : s.state === "blocked" ? "red" : s.state === "disabled" ? "zinc" : "amber"}>{p}: {s.state}</Badge>
+                        {s.detail ? <span className="ml-2 text-zinc-500">{s.detail}</span> : null}
+                      </p>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section>
         <h3 className="mb-3 font-semibold">Provider health</h3>

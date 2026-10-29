@@ -6,6 +6,7 @@ import { backoffMs } from "../http";
 import { ensureMovie } from "../movies";
 import { activeAdapters, PROVIDERS, probeProvider } from "../providers/registry";
 import { findByImdb } from "../tmdb";
+import { laptopHandledProviders } from "./local";
 import { checkMovie, fetchMissingDetails, linkMovie, recordProviderResult, syncCatalog } from "./check";
 
 /** Unwatched movies showing in Egypt (Home + Cinema Explorer) — kept slow to stay inside Vercel's free CPU allowance. */
@@ -124,6 +125,8 @@ export async function runJob(job: JobRow, runId: number): Promise<Record<string,
   switch (job.kind) {
     case "catalog": {
       const adapter = activeAdapters().find((a) => a.info.id === job.provider_id)!.adapter;
+      // the laptop worker syncs Scene/VOX catalogues itself while it's healthy
+      if ((await laptopHandledProviders()).has(adapter.id)) return { skipped: "handled by laptop worker" };
       const stats = await syncCatalog(adapter);
       await recordProviderResult(adapter.id, true);
       const imported = await importCatalogMovies(adapter.id).catch((e) => `skipped: ${(e as Error).message}`);

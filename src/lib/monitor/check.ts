@@ -5,7 +5,8 @@ import { q, q1, tx } from "../db";
 import { normalizeTitle } from "../normalize";
 import { chainFromBranchName } from "../providers/elcinema/parse";
 import { activeAdapters, PROVIDERS } from "../providers/registry";
-import type { AvailabilityStatus, MovieListing, ProviderAdapter } from "../providers/types";
+import type { AvailabilityStatus, CatalogEntry, MovieListing, ProviderAdapter } from "../providers/types";
+import { laptopHandledProviders } from "./local";
 import { OFFICIAL_SITE_CHAINS, officialSiteFor } from "../providers/official";
 import { baseTitle } from "../providers/vox/parse";
 import { cairoToday } from "../time";
@@ -45,8 +46,9 @@ export async function recordProviderResult(providerId: string, ok: boolean, erro
 
 // --- catalog ------------------------------------------------------------------
 
-export async function syncCatalog(adapter: ProviderAdapter, detailBudget = 15) {
-  const entries = await adapter.fetchCatalog!();
+export async function syncCatalog(adapter: ProviderAdapter, detailBudget = 15, prefetched?: CatalogEntry[]) {
+  // prefetched: entries read by the laptop worker and sent through /api/ingest
+  const entries = prefetched ?? (await adapter.fetchCatalog!());
   await q(`update provider_catalog set in_now_playing = false, in_coming_soon = false, in_bookable = false where provider_id = $1`, [adapter.id]);
   for (const e of entries) {
     const listDetails = !!adapter.catalogHasDetails;
@@ -233,7 +235,12 @@ export async function checkMovie(movieId: string, jobRunId?: number): Promise<(C
       )
     ).map((r) => r.id),
   );
+  const byLaptop = await laptopHandledProviders();
   for (const { adapter } of activeAdapters()) {
+    if (byLaptop.has(adapter.id)) {
+      results.push({ provider: adapter.id, status: "unknown", listed: 0, bookable: 0, events: 0, error: "skipped: handled by laptop worker" });
+      continue;
+    }
     if (tripped.has(adapter.id)) {
       results.push({ provider: adapter.id, status: "provider_unavailable", listed: 0, bookable: 0, events: 0, error: "skipped: site refusing requests, retry in ≤30 min" });
       continue;
@@ -248,7 +255,7 @@ export async function checkMovie(movieId: string, jobRunId?: number): Promise<(C
   return results;
 }
 
-async function checkMovieWithProvider(adapter: ProviderAdapter, movieId: string, jobRunId?: number): Promise<CheckResult> {
+export async function checkMovieWithProvider(adapter: ProviderAdapter, movieId: string, jobRunId?: number): Promise<CheckResult> {
   const today = cairoToday();
   const movie = await q1<{ release_date: string | null; eg_release_date: string | null }>(
     "select release_date::text, eg_release_date::text from movies where id = $1",

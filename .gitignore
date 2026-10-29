@@ -55,3 +55,11 @@ next-env.d.ts
 
 # keep the env TEMPLATE (no real values); must stay last so nothing re-ignores it
 !.env.example
+
+# laptop worker private files
+/local-worker/.env
+/local-worker/logs/
+/local-worker/state.json
+/local-worker/run.lock
+/local-worker/run-hidden.vbs
+!/local-worker/.env.example

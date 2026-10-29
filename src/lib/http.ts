@@ -108,9 +108,16 @@ export interface PoliteFetchOptions {
   method?: "GET" | "HEAD";
 }
 
+/** Anti-bot interstitials (Cloudflare/Akamai). Treated as a block — never solved or worked around. */
+export function isChallengePage(html: string): boolean {
+  return /cf-chl-|challenge-platform|<title>\s*(Just a moment|Attention Required!|Access Denied)/i.test(html.slice(0, 20_000));
+}
+
 export async function politeFetchText(target: string, opts: PoliteFetchOptions = {}): Promise<string> {
   const res = await politeFetch(target, opts);
-  return res.text();
+  const html = await res.text();
+  if (isChallengePage(html)) throw new ProviderHttpError(`anti-bot challenge page from ${new URL(target).host} (treated as blocked)`, 403, false);
+  return html;
 }
 
 export async function politeFetch(target: string, opts: PoliteFetchOptions = {}): Promise<Response> {
