@@ -16,6 +16,27 @@ const GAP_MS = Number(process.env.SCENE_MIN_GAP_MS ?? 5000);
 const get = (url: string) => politeFetchText(url, { minGapMs: GAP_MS, timeoutMs: 30_000 });
 const BRANCHES = Object.keys(SCENE_BRANCHES) as SceneBranch[];
 
+const MAX_DAYS = Number(process.env.SCENE_MAX_DAYS ?? 7);
+
+/**
+ * Every day in the movie page's date picker, with its sessions. The picker lists only
+ * the days this movie plays at this branch (e.g. 17–23 Dec for an advance release), but
+ * a listed day counts for nothing until its own request returns sessions with
+ * "Buy Tickets" links. The page's "There is no showtimes available" heading is a hidden
+ * template and is ignored.
+ */
+export async function readBranchDays(html: string, fetchDay: (date: string) => Promise<string>) {
+  const page = parseMoviePage(html);
+  const out: { date: string; shows: ReturnType<typeof parseShowtimes> }[] = [];
+  for (const date of page.days.slice(0, MAX_DAYS)) {
+    // the day rendered in the page itself needs no extra request
+    let shows = date === page.activeDate && /calanderdays\s+active/.test(html) ? parseShowtimes(html, date) : [];
+    if (!shows.length) shows = parseShowtimes(await fetchDay(date), date);
+    out.push({ date, shows });
+  }
+  return out;
+}
+
 // External id = movie slug. Branch sites share slugs, and a branch may sell a film
 // (e.g. advance booking) before listing it on its home page, so every check looks
 // the slug up at every branch.
@@ -45,21 +66,17 @@ export const scene: ProviderAdapter = {
         html = await get(url);
       } catch (e) {
         if (e instanceof ProviderHttpError && e.status === 404) continue; // not shown at this branch
+        if (e instanceof ProviderHttpError && e.status === 403)
+          throw new ProviderHttpError(`blocked by Scene's Cloudflare firewall (HTTP 403) — this server's network is refused`, 403, false);
         throw e;
       }
-      const page = parseMoviePage(html);
-      let date = page.activeDate;
-      let shows = date ? parseShowtimes(html, date) : [];
-      // Nothing on the rendered day but later days offered (advance booking): read the first other day.
-      if (!shows.length && page.days.length > 1) {
-        date = page.days.find((d) => d !== page.activeDate)!;
-        shows = parseShowtimes(await get(`${url}?business_day=${toSceneDate(date)}&ajax=1`), date);
-      }
+      const days = await readBranchDays(html, (date) => get(`${url}?business_day=${toSceneDate(date)}&ajax=1`));
+      const shows = days.flatMap((d) => d.shows.map((s) => ({ ...s, date: d.date })));
       if (!shows.length) continue;
       const b = { externalId: branch, name: SCENE_BRANCHES[branch].name, url: `${sceneOrigin(branch)}/` };
       listing.branches.push({ ...b, bookingUrl: shows.find((s) => s.bookingUrl)?.bookingUrl });
       for (const s of shows)
-        listing.showtimes.push({ branch: b, businessDate: date!, time: s.time, startsAt: s.startsAt, experience: s.experience, bookingUrl: s.bookingUrl });
+        listing.showtimes.push({ branch: b, businessDate: s.date, time: s.time, startsAt: s.startsAt, experience: s.experience, bookingUrl: s.bookingUrl });
     }
     return listing;
   },
