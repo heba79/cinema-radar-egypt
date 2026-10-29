@@ -60,9 +60,10 @@ export const PROVIDERS: ProviderInfo[] = [
       "No public API. robots.txt allows movie pages but disallows booking pages and query-string URLs, so we read only each movie's " +
       "default page: it lists the first date with sessions (today, or the first advance-booking date) at City Centre Alexandria, " +
       "City Centre Almaza and Mall of Egypt, with screen format and a session-level booking link. Later dates' times aren't read, " +
-      "and booking links are taken from the official page (not fetched). Since 29 Oct 2026 VOX's Akamai front end does not answer requests " +
-      "that identify themselves as a monitor (they stall until timeout, from the cloud and from home), while anonymous clients get instant " +
-      "responses. We don't disguise the monitor, so VOX is effectively unavailable until VOX allows it.",
+      "and booking links are taken from the official page (not fetched). VOX's Akamai front end is unreliable for automated clients: " +
+      "on 29 Oct 2026 the same honest Node.js requests alternated between instant answers and stalls for minutes at a time " +
+      "(it also stalls curl.exe sending a non-curl identity). We don't disguise the monitor; VOX is read from the laptop worker " +
+      "when it answers, and shown as temporarily unavailable when it doesn't.",
     adapter: vox,
   },
   {

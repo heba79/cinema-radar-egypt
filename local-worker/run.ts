@@ -35,7 +35,8 @@ function loadConfig() {
       .map((m) => [m[1], m[2]]),
   );
   if (!env.LOCAL_WORKER_TOKEN || env.LOCAL_WORKER_TOKEN.length < 32) throw new Error("LOCAL_WORKER_TOKEN missing in local-worker/.env");
-  const enabled = (env.PROVIDERS ?? "scene,vox-egypt").split(",").map((s) => s.trim()) as Provider[];
+  // WORKER_PROVIDERS (environment) overrides the file for a single manual test run
+  const enabled = (process.env.WORKER_PROVIDERS ?? env.PROVIDERS ?? "scene").split(",").map((s) => s.trim()) as Provider[];
   process.env.SCRAPER_CONTACT = env.SCRAPER_CONTACT ?? "https://cinema-radar-egypt.vercel.app";
   return { ingestUrl: env.INGEST_URL ?? "https://cinema-radar-egypt.vercel.app/api/ingest", token: env.LOCAL_WORKER_TOKEN, enabled };
 }
