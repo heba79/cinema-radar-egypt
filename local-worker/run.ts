@@ -157,7 +157,13 @@ async function main() {
       delete state.retryAt[p];
       await runProvider(cfg, p, plan, summary).catch((e) => {
         status[p] = { state: "error", detail: (e as Error).message.slice(0, 200) };
-        log(`${p}: run failed — ${(e as Error).message}`);
+        // A provider can pass the access check but fail halfway through its
+        // listings. Back off these failures too; otherwise the next scheduled
+        // run immediately retries an already struggling provider.
+        const n = (state.errors[p] ?? 0) + 1;
+        state.errors[p] = n;
+        state.retryAt[p] = new Date(Date.now() + Math.min(60, 5 * 2 ** (n - 1)) * 60_000).toISOString();
+        log(`${p}: run failed — ${(e as Error).message}; retry after ${state.retryAt[p]}`);
       });
     }
   } catch (e) {
