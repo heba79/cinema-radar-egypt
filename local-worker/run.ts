@@ -153,9 +153,13 @@ async function main() {
         state.retryAt[p] = new Date(Date.now() + Math.min(60, 5 * 2 ** (n - 1)) * 60_000).toISOString(); // 5,10,20,40,60 min
       }
       if (access.state !== "ok" || checkOnly) continue;
-      state.errors[p] = 0;
-      delete state.retryAt[p];
-      await runProvider(cfg, p, plan, summary).catch((e) => {
+      // Only clear the failure streak after the entire provider run succeeds.
+      // Resetting it after accessCheck alone would turn repeated listing
+      // failures into endless 5-minute retries.
+      await runProvider(cfg, p, plan, summary).then(() => {
+        state.errors[p] = 0;
+        delete state.retryAt[p];
+      }).catch((e) => {
         status[p] = { state: "error", detail: (e as Error).message.slice(0, 200) };
         // A provider can pass the access check but fail halfway through its
         // listings. Back off these failures too; otherwise the next scheduled
