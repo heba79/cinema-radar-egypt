@@ -2,7 +2,7 @@
 # Runs at sign-in and then every $Minutes minutes while you're signed in, hidden,
 # on battery too. It never wakes the laptop and never runs two copies at once.
 #   powershell -ExecutionPolicy Bypass -File local-worker\install-task.ps1
-param([int]$Minutes = 10)
+param([ValidateRange(2, 60)][int]$Minutes = 3)
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
