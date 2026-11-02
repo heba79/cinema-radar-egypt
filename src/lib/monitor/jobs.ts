@@ -7,6 +7,7 @@ import { ensureMovie } from "../movies";
 import { activeAdapters, PROVIDERS, probeProvider } from "../providers/registry";
 import { findByImdb } from "../tmdb";
 import { laptopHandledProviders } from "./local";
+import { monitoringIntervalSeconds, type MonitoringPriority } from "./priority";
 import { checkMovie, fetchMissingDetails, linkMovie, recordProviderResult, syncCatalog } from "./check";
 
 /** Unwatched movies showing in Egypt (Home + Cinema Explorer) — kept slow to stay inside Vercel's free CPU allowance. */
@@ -31,7 +32,12 @@ export async function movieInterval(): Promise<number> {
   // kept below 50% of that host's request budget.
   const gapS = Math.max(...activeAdapters().map((a) => a.info.minRequestGapMs)) / 1000;
   const needed = Math.ceil((n * 2 * gapS * 2) / 60) * 60;
-  return Math.max(base, needed);
+  // Opt-in only: preserve the current 5-minute default and never exceed the
+  // existing provider-budget floor. A future per-movie setting can replace this.
+  const configured = process.env.MONITOR_PRIORITY_TIER;
+  const tier: MonitoringPriority = configured === "critical" || configured === "high" || configured === "low"
+    ? configured : "normal";
+  return monitoringIntervalSeconds(tier, Math.max(base, needed));
 }
 
 export async function ensureJobs() {

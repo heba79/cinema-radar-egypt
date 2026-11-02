@@ -11,6 +11,7 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
+import { providerRetryDelayMs } from "./retry";
 
 const DIR = __dirname;
 const VERSION = "laptop-1.0.0";
@@ -101,7 +102,14 @@ async function accessCheck(p: Provider): Promise<ProviderState> {
   const { parseRobots, robotsAllows, politeFetchText, ProviderHttpError } = await import("../src/lib/http");
   try {
     const robotsRes = await fetch(ACCESS[p].robots, { signal: AbortSignal.timeout(20_000), headers: { "user-agent": (await import("../src/lib/http")).userAgent() } });
-    const rules = parseRobots(robotsRes.ok ? await robotsRes.text() : "", "CinemaRadarEgypt");
+    // Fail closed: an unavailable robots.txt is not permission to crawl.
+    if (!robotsRes.ok) {
+      return {
+        state: robotsRes.status === 403 || robotsRes.status === 429 ? "blocked" : "error",
+        detail: `robots.txt unavailable (HTTP ${robotsRes.status}); skipping provider`,
+      };
+    }
+    const rules = parseRobots(await robotsRes.text(), "CinemaRadarEgypt");
     const denied = ACCESS[p].paths.filter((path) => !robotsAllows(rules, path));
     if (denied.length) return { state: "disabled", detail: `robots.txt disallows ${denied.join(", ")}` };
     await politeFetchText(ACCESS[p].page, { retries: 1, timeoutMs: 25_000 }); // throws on 403 / challenge
@@ -150,14 +158,24 @@ async function main() {
       if (access.state === "error") {
         const n = (state.errors[p] ?? 0) + 1;
         state.errors[p] = n;
-        state.retryAt[p] = new Date(Date.now() + Math.min(60, 5 * 2 ** (n - 1)) * 60_000).toISOString(); // 5,10,20,40,60 min
+        state.retryAt[p] = new Date(Date.now() + providerRetryDelayMs(n)).toISOString(); // 5,10,20,40,60 min
       }
       if (access.state !== "ok" || checkOnly) continue;
-      state.errors[p] = 0;
-      delete state.retryAt[p];
-      await runProvider(cfg, p, plan, summary).catch((e) => {
+      // Only clear the failure streak after the entire provider run succeeds.
+      // Resetting it after accessCheck alone would turn repeated listing
+      // failures into endless 5-minute retries.
+      await runProvider(cfg, p, plan, summary).then(() => {
+        state.errors[p] = 0;
+        delete state.retryAt[p];
+      }).catch((e) => {
         status[p] = { state: "error", detail: (e as Error).message.slice(0, 200) };
-        log(`${p}: run failed — ${(e as Error).message}`);
+        // A provider can pass the access check but fail halfway through its
+        // listings. Back off these failures too; otherwise the next scheduled
+        // run immediately retries an already struggling provider.
+        const n = (state.errors[p] ?? 0) + 1;
+        state.errors[p] = n;
+        state.retryAt[p] = new Date(Date.now() + providerRetryDelayMs(n)).toISOString();
+        log(`${p}: run failed — ${(e as Error).message}; retry after ${state.retryAt[p]}`);
       });
     }
   } catch (e) {

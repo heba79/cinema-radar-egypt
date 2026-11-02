@@ -1,7 +1,7 @@
 # Laptop worker (Windows 11) — Scene & VOX from your home connection
 
 Scene's and VOX's websites refuse our cloud server, but answer normal home connections.
-This small program runs on your laptop every 10 minutes, reads Scene/VOX with the same
+This small program runs on your laptop every 5 minutes by default, reads Scene/VOX with the same
 code the website uses, and sends what it saw to the website (`/api/ingest`). The website
 then runs the normal checks and sends alerts — once, never duplicated.
 
@@ -43,10 +43,11 @@ if missing: git-scm.com).
    npx tsx local-worker/run.ts --once
    ```
    Expect lines like `scene: <movie> — 28 session(s) read → {"status":"advance_booking",…}`.
-5. **Turn on automatic runs** (every 10 minutes while you're signed in):
+5. **Turn on automatic runs** (every 5 minutes by default while you're signed in):
    ```powershell
    powershell -ExecutionPolicy Bypass -File local-worker\install-task.ps1
    ```
+   To choose a slower interval if the site starts rate-limiting, pass `-Minutes 10` to the installer. The installer allows 2–60 minutes; use shorter intervals only after verifying site access and request budgets. Existing Windows tasks keep their old interval until the installer is run again.
 6. **Check it's working**: open https://cinema-radar-egypt.vercel.app/admin →
    *Laptop worker* shows **● Online** and `scene: ok`. Or open *Task Scheduler* →
    *Task Scheduler Library* → **CinemaRadarLocalWorker** → *Last Run Result* `0x0`.
