@@ -102,7 +102,14 @@ async function accessCheck(p: Provider): Promise<ProviderState> {
   const { parseRobots, robotsAllows, politeFetchText, ProviderHttpError } = await import("../src/lib/http");
   try {
     const robotsRes = await fetch(ACCESS[p].robots, { signal: AbortSignal.timeout(20_000), headers: { "user-agent": (await import("../src/lib/http")).userAgent() } });
-    const rules = parseRobots(robotsRes.ok ? await robotsRes.text() : "", "CinemaRadarEgypt");
+    // Fail closed: an unavailable robots.txt is not permission to crawl.
+    if (!robotsRes.ok) {
+      return {
+        state: robotsRes.status === 403 || robotsRes.status === 429 ? "blocked" : "error",
+        detail: `robots.txt unavailable (HTTP ${robotsRes.status}); skipping provider`,
+      };
+    }
+    const rules = parseRobots(await robotsRes.text(), "CinemaRadarEgypt");
     const denied = ACCESS[p].paths.filter((path) => !robotsAllows(rules, path));
     if (denied.length) return { state: "disabled", detail: `robots.txt disallows ${denied.join(", ")}` };
     await politeFetchText(ACCESS[p].page, { retries: 1, timeoutMs: 25_000 }); // throws on 403 / challenge
