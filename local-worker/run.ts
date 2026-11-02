@@ -11,6 +11,7 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
+import { providerRetryDelayMs } from "./retry";
 
 const DIR = __dirname;
 const VERSION = "laptop-1.0.0";
@@ -150,7 +151,7 @@ async function main() {
       if (access.state === "error") {
         const n = (state.errors[p] ?? 0) + 1;
         state.errors[p] = n;
-        state.retryAt[p] = new Date(Date.now() + Math.min(60, 5 * 2 ** (n - 1)) * 60_000).toISOString(); // 5,10,20,40,60 min
+        state.retryAt[p] = new Date(Date.now() + providerRetryDelayMs(n)).toISOString(); // 5,10,20,40,60 min
       }
       if (access.state !== "ok" || checkOnly) continue;
       // Only clear the failure streak after the entire provider run succeeds.
@@ -166,7 +167,7 @@ async function main() {
         // run immediately retries an already struggling provider.
         const n = (state.errors[p] ?? 0) + 1;
         state.errors[p] = n;
-        state.retryAt[p] = new Date(Date.now() + Math.min(60, 5 * 2 ** (n - 1)) * 60_000).toISOString();
+        state.retryAt[p] = new Date(Date.now() + providerRetryDelayMs(n)).toISOString();
         log(`${p}: run failed — ${(e as Error).message}; retry after ${state.retryAt[p]}`);
       });
     }
