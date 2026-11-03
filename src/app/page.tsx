@@ -1,6 +1,7 @@
 import { Ticket } from "lucide-react";
 import Link from "next/link";
 import { MovieCard, Poster, Rail } from "@/components/movie-card";
+import { DiscoverMovies } from "@/components/discover-movies";
 import { SearchBox } from "@/components/search-box";
 import { Card, Empty, SectionTitle } from "@/components/ui";
 import { nowShowingInEgypt, recentOpenings } from "@/lib/queries";
@@ -33,6 +34,7 @@ export default async function Home() {
         </p>
         <div className="mt-8 max-w-2xl">
           <SearchBox large />
+          <a href="#discover" className="mt-4 inline-flex rounded-full border border-border bg-surface/80 px-5 py-2.5 text-sm font-semibold text-foreground hover:border-accent">Browse movies and filters ↓</a>
         </div>
       </section>
 
@@ -68,29 +70,10 @@ export default async function Home() {
         )}
       </section>
 
-      <section>
-        <SectionTitle action={<Link href="/cinemas" className="text-sm text-muted hover:text-foreground">Cinema explorer →</Link>}>
-          Now showing in Egypt
-        </SectionTitle>
-        {now.length ? (
-          <Rail>
-            {now.map((m) => (
-              <MovieCard key={m.tmdb_id} tmdbId={m.tmdb_id} title={m.title} posterPath={m.poster_path} status={m.status} />
-            ))}
-          </Rail>
-        ) : (
-          <Empty title="Syncing Egyptian listings…">The monitoring worker imports what&apos;s playing in Egypt every 30 minutes.</Empty>
-        )}
-      </section>
-
-      <section>
-        <SectionTitle>Coming soon</SectionTitle>
-        <Rail>
-          {soon.map((m) => (
-            <MovieCard key={m.id} tmdbId={m.id} title={m.title} posterPath={m.poster_path} subtitle={m.release_date ? `Release ${m.release_date}` : "TBA"} />
-          ))}
-        </Rail>
-      </section>
+      <DiscoverMovies
+        showing={now.map((m) => ({ id: m.tmdb_id, title: m.title, posterPath: m.poster_path, status: m.status }))}
+        upcoming={soon.map((m) => ({ id: m.id, title: m.title, posterPath: m.poster_path, releaseDate: m.release_date }))}
+      />
 
       <section>
         <SectionTitle>Trending this week</SectionTitle>
