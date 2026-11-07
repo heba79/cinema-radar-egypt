@@ -7,7 +7,7 @@ import type { AvailabilityStatus } from "@/lib/providers/types";
 type Film = {
   id: number;
   title: string;
-  posterPath: string | null;
+  posterPath: string | null | undefined;
   releaseDate?: string | null;
   status?: AvailabilityStatus | null;
 };
