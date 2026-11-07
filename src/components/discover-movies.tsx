@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { MovieCard } from "@/components/movie-card";
+import Link from "next/link";
 import type { AvailabilityStatus } from "@/lib/providers/types";
 
 type Film = {
@@ -32,6 +33,10 @@ export function DiscoverMovies({ showing, upcoming }: { showing: Film[]; upcomin
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">Explore Egyptian cinema</p>
         <h2 id="discover-title" className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Find your next movie</h2>
         <p className="mt-2 text-sm text-muted">Browse releases, open a movie, and set up a booking alert.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href="/watchlist" className="rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold hover:border-accent">My watchlist →</Link>
+          <Link href="/cinemas" className="rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold hover:border-accent">Explore cinemas →</Link>
+        </div>
       </div>
       <label className="block">
         <span className="sr-only">Filter movies by title</span>
