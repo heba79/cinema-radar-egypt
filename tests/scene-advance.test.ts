@@ -4,7 +4,18 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readBranchDays } from "@/lib/providers/scene/adapter";
+import { readBranchDays, sceneSlugCandidates } from "@/lib/providers/scene/adapter";
+
+describe("Scene title lookup", () => {
+  it("builds Scene-style addresses from a movie title", () => {
+    expect(sceneSlugCandidates("The Hunger Games: Sunrise on the Reaping")).toEqual([
+      "the-hunger-games-sunrise-on-the-reaping",
+      "hunger-games-sunrise-on-the-reaping",
+      "the-the-hunger-games-sunrise-on-the-reaping",
+    ]);
+    expect(sceneSlugCandidates("Avengers: Doomsday")[0]).toBe("avengers-doomsday");
+  });
+});
 import { parseMoviePage, parseShowtimes } from "@/lib/providers/scene/parse";
 import { isChallengePage } from "@/lib/http";
 

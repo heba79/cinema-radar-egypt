@@ -1,4 +1,5 @@
 import { politeFetch, politeFetchText, ProviderHttpError } from "../../http";
+import { normalizeTitle } from "../../normalize";
 import type { CatalogEntry, MovieListing, ProviderAdapter } from "../types";
 import {
   isSceneBookingUrl,
@@ -35,6 +36,44 @@ export async function readBranchDays(html: string, fetchDay: (date: string) => P
     out.push({ date, shows });
   }
   return out;
+}
+
+/** "The Hunger Games: Sunrise on the Reaping" → "the-hunger-games-sunrise-on-the-reaping" (Scene's slug style). */
+export function sceneSlugCandidates(title: string): string[] {
+  const base = title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return [...new Set([base, base.replace(/^the-/, ""), `the-${base}`].filter((s) => /^[a-z0-9-]{2,120}$/.test(s)))];
+}
+
+/**
+ * Scene sells some films without listing them on a branch home page (seen with "The Hunger
+ * Games: Sunrise on the Reaping", Nov 2026), so the home-page catalogue misses them. For a
+ * movie someone watches, try its title-based address: accepted only if Scene's own page
+ * title equals the movie title and the page lists at least one date at some branch.
+ */
+export async function discoverSceneMovie(title: string): Promise<CatalogEntry | null> {
+  const want = normalizeTitle(title);
+  for (const slug of sceneSlugCandidates(title)) {
+    for (const branch of BRANCHES) {
+      let html: string;
+      try {
+        html = await get(`${sceneOrigin(branch)}/movie-details/${slug}.html`);
+      } catch (e) {
+        if (e instanceof ProviderHttpError && e.status === 404) continue;
+        throw e;
+      }
+      const page = parseMoviePage(html);
+      if (page.title && normalizeTitle(page.title) === want && page.days.length) {
+        return { externalId: slug, titleEn: page.title, inNowPlaying: true };
+      }
+    }
+  }
+  return null;
 }
 
 // External id = movie slug. Branch sites share slugs, and a branch may sell a film

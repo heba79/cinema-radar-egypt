@@ -558,6 +558,11 @@ async function buildEventPayload(movieId: string, branchIds: string[], type: str
     [movieId],
   );
   const listingOnly = type === "showtimes_listed";
+  // Scene sells some films without listing them on its home pages: point listing alerts at the
+  // movie's own Scene page when we know its address (from the catalogue or the title lookup).
+  const sceneSlug = listingOnly
+    ? (await q1<{ external_id: string }>("select external_id from provider_movie_links where provider_id = 'scene' and movie_id = $1 limit 1", [movieId]))?.external_id
+    : undefined;
   const branches: BranchPayload[] = [];
   for (const branchId of branchIds) {
     const b = await q1<{ name: string; chain: string | null; city: string | null; area: string | null; external_id: string; provider_id: string }>(
@@ -580,7 +585,12 @@ async function buildEventPayload(movieId: string, branchIds: string[], type: str
     const allowed = onlyShows?.get(branchId);
     if (allowed) shows.splice(0, shows.length, ...shows.filter((s) => allowed.has(`${s.show_date}|${s.show_time}`)));
     if (!shows.length || !b) continue;
-    const link = listingOnly ? officialSiteFor(b.chain, b.name) : shows[0].booking_url;
+    const site = listingOnly ? officialSiteFor(b.chain, b.name) : null;
+    const link = listingOnly
+      ? b.chain === "Scene Cinemas" && sceneSlug && site && site !== "https://scenecinemas.com/"
+        ? `${site}movie-details/${sceneSlug}.html`
+        : site
+      : shows[0].booking_url;
     if (!link) continue;
     branches.push({
       cinema: b.chain && b.chain !== "Independent" ? b.chain : b.name,

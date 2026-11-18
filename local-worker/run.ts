@@ -54,7 +54,12 @@ function pruneLogs() {
 }
 
 // ---------- state & lock ----------
-type State = { blockedUntil: Partial<Record<Provider, string>>; errors: Partial<Record<Provider, number>>; retryAt: Partial<Record<Provider, string>> };
+type State = {
+  blockedUntil: Partial<Record<Provider, string>>;
+  errors: Partial<Record<Provider, number>>;
+  retryAt: Partial<Record<Provider, string>>;
+  discoveredAt?: Record<string, string>; // movie id → last Scene title lookup
+};
 const readState = (): State => {
   try {
     return { blockedUntil: {}, errors: {}, retryAt: {}, ...JSON.parse(readFileSync(STATE_FILE, "utf8")) };
@@ -183,7 +188,8 @@ async function main() {
     log(`FAILED: ${(e as Error).message}`);
     if ((e as { fatal?: boolean }).fatal) process.exitCode = 2;
   } finally {
-    saveState(state);
+    // merge: runProvider may have saved Scene lookup times meanwhile
+    saveState({ ...readState(), blockedUntil: state.blockedUntil, errors: state.errors, retryAt: state.retryAt });
     if (!checkOnly) {
       summary.finishedAt = new Date().toISOString();
       await ingest(cfg, { action: "heartbeat", workerId, version: VERSION, providers: status, lastRun: summary }).catch((e) => log(`heartbeat failed: ${(e as Error).message}`));
@@ -205,8 +211,30 @@ async function runProvider(
   const { looksLikeSceneBookingPage } = await import("../src/lib/providers/scene/parse");
   const adapter = p === "scene" ? scene : vox;
 
-  if (plan.catalogDue.includes(p)) {
+  // Scene sells some films it doesn't show on branch home pages: look watched-but-unlinked
+  // movies up by exact title (each at most every 6 h).
+  const state = readState();
+  const DISCOVER_EVERY = 6 * 3600_000;
+  const unlinked =
+    p === "scene"
+      ? plan.movies.filter((m) => !(m.links[p] ?? []).length && Date.now() - Date.parse(state.discoveredAt?.[m.movie_id] ?? "1970-01-01") > DISCOVER_EVERY)
+      : [];
+  if (plan.catalogDue.includes(p) || unlinked.length) {
     const entries = await adapter.fetchCatalog!();
+    if (unlinked.length) {
+      const { discoverSceneMovie } = await import("../src/lib/providers/scene/adapter");
+      state.discoveredAt ??= {};
+      for (const m of unlinked) {
+        const found = await discoverSceneMovie(m.title).catch((e) => {
+          log(`${p}: lookup of "${m.title}" failed — ${(e as Error).message}`);
+          return null;
+        });
+        state.discoveredAt[m.movie_id] = new Date().toISOString();
+        log(`${p}: lookup "${m.title}" → ${found ? found.externalId : "not on Scene's site"}`);
+        if (found && !entries.some((e) => e.externalId === found.externalId)) entries.push(found);
+      }
+      saveState({ ...readState(), discoveredAt: state.discoveredAt });
+    }
     const r = await ingest(cfg, { action: "catalog", provider: p, entries });
     log(`${p}: catalogue ${entries.length} titles sent`, r);
     plan = await ingest(cfg, { action: "plan" }); // links may have changed
