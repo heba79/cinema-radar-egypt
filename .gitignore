@@ -62,4 +62,5 @@ next-env.d.ts
 /local-worker/state.json
 /local-worker/run.lock
 /local-worker/run-hidden.vbs
+/local-worker/update-hidden.vbs
 !/local-worker/.env.example

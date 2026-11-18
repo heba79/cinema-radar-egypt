@@ -57,6 +57,11 @@ if missing: git-scm.com).
 - **Pause for a site:** remove it from `PROVIDERS=` in `local-worker\.env` (default: `PROVIDERS=scene`).
 - **Stop completely:** `powershell -ExecutionPolicy Bypass -File local-worker\uninstall-task.ps1`
 - **Update after code changes:** `cd C:\CinemaRadar; git pull; npm ci`
+- **Automatic daily update** (optional): `powershell -ExecutionPolicy Bypass -File local-worker\install-update-task.ps1`
+  checks GitHub once a day (04:00, or when the laptop is next on) and fast-forwards this copy's
+  `main` branch, running `npm ci` only if packages changed. It never touches another branch or
+  hand-edited files, and waits for a running worker first. Log: `local-worker\logs\update-*.log`.
+  Remove: `Unregister-ScheduledTask -TaskName CinemaRadarAutoUpdate -Confirm:$false`
 - **Laptop asleep/off:** no Scene/VOX checks; after 15 minutes the website falls back
   to its cloud checks (elCinema keeps working; Scene/VOX show "temporarily unavailable").
 - **Revoke the token** (e.g. lost laptop): change `LOCAL_WORKER_TOKEN` on Vercel and redeploy.
